@@ -812,7 +812,9 @@ export default {
 
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* Two columns when there is room, one column on narrow content areas
+     (e.g. collapsed sidebar on a tablet) instead of overflowing. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
   gap: 1.25rem;
   margin-bottom: 1.5rem;
 }

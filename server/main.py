@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
 
@@ -89,6 +90,8 @@ class DemandForecast(BaseModel):
     forecasted_demand: int
     trend: str
     period: str
+    unit_cost: float
+    lead_time_days: int
 
 class BacklogItem(BaseModel):
     id: str
@@ -119,6 +122,36 @@ class CreatePurchaseOrderRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: str
     notes: Optional[str] = None
+
+class RestockLineRequest(BaseModel):
+    sku: str
+    quantity: int
+
+class CreateRestockingOrderRequest(BaseModel):
+    items: List[RestockLineRequest]
+    budget: float
+
+class RestockLine(BaseModel):
+    sku: str
+    name: str
+    quantity: int
+    unit_cost: float
+    line_total: float
+
+class RestockingOrder(BaseModel):
+    id: str
+    order_number: str
+    items: List[RestockLine]
+    total_cost: float
+    budget: float
+    lead_time_days: int
+    submitted_date: str
+    expected_delivery: str
+    status: str
+
+# Submitted restocking orders live only in memory, like all other data here,
+# so they are lost when the server restarts.
+restocking_orders: List[dict] = []
 
 # API endpoints
 @app.get("/")
@@ -166,7 +199,59 @@ def get_demand_forecasts():
     """Get demand forecasts"""
     return demand_forecasts
 
-@app.get("/api/backlog", response_model=List[BacklogItem])
+@app.get("/api/restocking-orders", response_model=List[RestockingOrder])
+def get_restocking_orders():
+    """Get submitted restocking orders, newest first"""
+    return list(reversed(restocking_orders))
+
+@app.post("/api/restocking-orders", response_model=RestockingOrder, status_code=201)
+def create_restocking_order(request: CreateRestockingOrderRequest):
+    """Submit a restocking order for items from the demand forecast"""
+    if not request.items:
+        raise HTTPException(status_code=400, detail="Order must contain at least one item")
+
+    forecasts_by_sku = {f["item_sku"]: f for f in demand_forecasts}
+    lines = []
+    for line in request.items:
+        forecast = forecasts_by_sku.get(line.sku)
+        if not forecast:
+            raise HTTPException(status_code=400, detail=f"Unknown SKU: {line.sku}")
+        if line.quantity <= 0:
+            raise HTTPException(status_code=400, detail=f"Quantity must be positive for {line.sku}")
+        # Price comes from the server-side forecast data, never from the client,
+        # so the budget check below can't be bypassed with a manipulated price.
+        unit_cost = forecast["unit_cost"]
+        lines.append({
+            "sku": line.sku,
+            "name": forecast["item_name"],
+            "quantity": line.quantity,
+            "unit_cost": unit_cost,
+            "line_total": round(unit_cost * line.quantity, 2),
+        })
+
+    total_cost = round(sum(l["line_total"] for l in lines), 2)
+    if total_cost > request.budget:
+        raise HTTPException(status_code=400, detail="Order total exceeds budget")
+
+    # The order ships as one delivery, so it arrives when its slowest item does.
+    lead_time_days = max(forecasts_by_sku[l["sku"]]["lead_time_days"] for l in lines)
+    submitted = datetime.now().replace(microsecond=0)
+    order_index = len(restocking_orders) + 1
+    order = {
+        "id": f"RST-{order_index}",
+        "order_number": f"RST-{submitted.year}-{order_index:04d}",
+        "items": lines,
+        "total_cost": total_cost,
+        "budget": request.budget,
+        "lead_time_days": lead_time_days,
+        "submitted_date": submitted.isoformat(),
+        "expected_delivery": (submitted + timedelta(days=lead_time_days)).isoformat(),
+        "status": "Submitted",
+    }
+    restocking_orders.append(order)
+    return order
+
+@app.get("/api/backlog",response_model=List[BacklogItem])
 def get_backlog():
     """Get backlog items with purchase order status"""
     # Add has_purchase_order flag to each backlog item

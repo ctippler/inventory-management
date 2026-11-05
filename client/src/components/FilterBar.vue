@@ -106,12 +106,12 @@ export default {
   border-bottom: 1px solid #e2e8f0;
   padding: 0.75rem 0;
   position: sticky;
-  top: 70px;
+  top: var(--header-h, 64px);
   z-index: 90;
 }
 
 .filters-container {
-  max-width: 1600px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 2rem;
   display: flex;
@@ -121,8 +121,9 @@ export default {
 
 .filters-grid {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   flex: 1;
 }
 
