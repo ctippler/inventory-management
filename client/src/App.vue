@@ -1,42 +1,57 @@
 <template>
-  <div class="app">
-    <header class="top-nav">
-      <div class="nav-container">
-        <div class="logo">
-          <h1>{{ t('nav.companyName') }}</h1>
-          <span class="subtitle">{{ t('nav.subtitle') }}</span>
+  <div :class="['app', { 'sidebar-collapsed': collapsed }]">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">{{ t('nav.companyName').charAt(0) }}</span>
+        <div v-show="!collapsed" class="brand-text">
+          <span class="brand-name">{{ t('nav.companyName') }}</span>
+          <span class="brand-sub">{{ t('nav.subtitle') }}</span>
         </div>
-        <nav class="nav-tabs">
-          <router-link to="/" :class="{ active: $route.path === '/' }">
-            {{ t('nav.overview') }}
-          </router-link>
-          <router-link to="/inventory" :class="{ active: $route.path === '/inventory' }">
-            {{ t('nav.inventory') }}
-          </router-link>
-          <router-link to="/orders" :class="{ active: $route.path === '/orders' }">
-            {{ t('nav.orders') }}
-          </router-link>
-          <router-link to="/spending" :class="{ active: $route.path === '/spending' }">
-            {{ t('nav.finance') }}
-          </router-link>
-          <router-link to="/demand" :class="{ active: $route.path === '/demand' }">
-            {{ t('nav.demandForecast') }}
-          </router-link>
-          <router-link to="/reports" :class="{ active: $route.path === '/reports' }">
-            Reports
-          </router-link>
-        </nav>
-        <LanguageSwitcher />
-        <ProfileMenu
-          @show-profile-details="showProfileDetails = true"
-          @show-tasks="showTasks = true"
-        />
       </div>
-    </header>
-    <FilterBar />
-    <main class="main-content">
-      <router-view />
-    </main>
+
+      <nav class="side-nav">
+        <router-link
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          :class="['side-link', { active: isActive(item.to) }]"
+          :title="collapsed ? item.label : null"
+          :aria-label="item.label"
+        >
+          <NavIcon :name="item.icon" />
+          <span v-show="!collapsed" class="side-label">{{ item.label }}</span>
+        </router-link>
+      </nav>
+
+      <button
+        type="button"
+        class="collapse-btn"
+        :aria-expanded="!collapsed"
+        :aria-label="collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')"
+        :title="collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')"
+        @click="toggleSidebar"
+      >
+        <NavIcon :name="collapsed ? 'chevronRight' : 'chevronLeft'" />
+        <span v-show="!collapsed" class="side-label">{{ t('nav.collapseSidebar') }}</span>
+      </button>
+    </aside>
+
+    <div class="main-column">
+      <header class="app-header">
+        <span class="header-section">{{ currentSection }}</span>
+        <div class="header-actions">
+          <LanguageSwitcher />
+          <ProfileMenu
+            @show-profile-details="showProfileDetails = true"
+            @show-tasks="showTasks = true"
+          />
+        </div>
+      </header>
+      <FilterBar />
+      <main class="main-content">
+        <router-view />
+      </main>
+    </div>
 
     <ProfileDetailsModal
       :is-open="showProfileDetails"
@@ -64,10 +79,14 @@ import ProfileMenu from './components/ProfileMenu.vue'
 import ProfileDetailsModal from './components/ProfileDetailsModal.vue'
 import TasksModal from './components/TasksModal.vue'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import NavIcon from './components/NavIcon.vue'
+import { useSidebar } from './composables/useSidebar'
+import { useRoute } from 'vue-router'
 
 export default {
   name: 'App',
   components: {
+    NavIcon,
     FilterBar,
     ProfileMenu,
     ProfileDetailsModal,
@@ -77,6 +96,28 @@ export default {
   setup() {
     const { currentUser } = useAuth()
     const { t } = useI18n()
+    const route = useRoute()
+    const { collapsed, toggleSidebar } = useSidebar()
+
+    // "Reports" stays a literal string as before; its missing translation is
+    // one of the known Reports-page bugs tracked separately.
+    const navItems = computed(() => [
+      { to: '/', label: t('nav.overview'), icon: 'overview' },
+      { to: '/inventory', label: t('nav.inventory'), icon: 'inventory' },
+      { to: '/orders', label: t('nav.orders'), icon: 'orders' },
+      { to: '/spending', label: t('nav.finance'), icon: 'finance' },
+      { to: '/demand', label: t('nav.demandForecast'), icon: 'demand' },
+      { to: '/restocking', label: t('nav.restocking'), icon: 'restocking' },
+      { to: '/reports', label: 'Reports', icon: 'reports' }
+    ])
+
+    const isActive = (to) => route.path === to
+
+    const currentSection = computed(() => {
+      const item = navItems.value.find(i => isActive(i.to))
+      return item ? item.label : ''
+    })
+
     const showProfileDetails = ref(false)
     const showTasks = ref(false)
     const apiTasks = ref([])
@@ -150,6 +191,11 @@ export default {
 
     return {
       t,
+      navItems,
+      isActive,
+      currentSection,
+      collapsed,
+      toggleSidebar,
       showProfileDetails,
       showTasks,
       tasks,
@@ -171,107 +217,205 @@ export default {
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: #f8fafc;
-  color: #1e293b;
+  color: #334155;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+:root {
+  --sidebar-w: 240px;
+  --sidebar-w-collapsed: 72px;
+  --header-h: 64px;
+  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
-.top-nav {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+/* App shell: sidebar + main column */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.app.sidebar-collapsed {
+  grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+  color: #cbd5e1;
+  padding: 1rem 0.75rem;
+  overflow: hidden;
+  z-index: 110;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0.375rem 1.25rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #1e293b;
+  min-height: 56px;
+}
+
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brand-name {
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.938rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-sub {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: #94a3b8;
+}
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.side-link,
+.collapse-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 40px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.side-link:hover,
+.collapse-btn:hover {
+  background: #1e293b;
+  color: #fff;
+}
+
+.side-link.active {
+  background: #1e293b;
+  color: #fff;
+}
+
+.side-link.active::before {
+  content: '';
+  position: absolute;
+  left: -0.75rem;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #3b82f6;
+}
+
+.side-link:focus-visible,
+.collapse-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.collapse-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: #94a3b8;
+  margin-top: 0.75rem;
+}
+
+.sidebar-collapsed .brand,
+.sidebar-collapsed .side-link,
+.sidebar-collapsed .collapse-btn {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Main column */
+.main-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-header {
   position: sticky;
   top: 0;
   z-index: 100;
-}
-
-.nav-container {
-  max-width: 1600px;
-  margin: 0 auto;
+  height: var(--header-h);
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 0 2rem;
-  height: 70px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.nav-container > .nav-tabs {
-  margin-left: auto;
-  margin-right: 1rem;
+.header-section {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
 }
 
-.nav-container > .language-switcher {
-  margin-right: 1rem;
-}
-
-.logo {
+.header-actions {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.75rem;
-}
-
-.logo h1 {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.025em;
-}
-
-.subtitle {
-  font-size: 0.813rem;
-  color: #64748b;
-  font-weight: 400;
-  padding-left: 0.75rem;
-  border-left: 1px solid #e2e8f0;
-}
-
-.nav-tabs {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.nav-tabs a {
-  padding: 0.625rem 1.25rem;
-  color: #64748b;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.938rem;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.nav-tabs a:hover {
-  color: #0f172a;
-  background: #f1f5f9;
-}
-
-.nav-tabs a.active {
-  color: #2563eb;
-  background: #eff6ff;
-}
-
-.nav-tabs a.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
 }
 
 .main-content {
   flex: 1;
-  max-width: 1600px;
+  max-width: 1440px;
   width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 2rem;
+  padding: 2rem;
+}
+
+@media (max-width: 767px) {
+  .app-header,
+  .main-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 
 .page-header {
@@ -300,9 +444,10 @@ body {
 
 .stat-card {
   background: white;
-  padding: 1.25rem;
-  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   transition: all 0.2s ease;
 }
 
@@ -345,10 +490,11 @@ body {
 
 .card {
   background: white;
-  border-radius: 10px;
-  padding: 1.25rem;
+  border-radius: 12px;
+  padding: 1.5rem;
   border: 1px solid #e2e8f0;
-  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  margin-bottom: 1.5rem;
 }
 
 .card-header {

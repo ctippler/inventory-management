@@ -6,6 +6,9 @@ export default {
     orders: 'Orders',
     finance: 'Finance',
     demandForecast: 'Demand Forecast',
+    restocking: 'Restocking',
+    collapseSidebar: 'Collapse sidebar',
+    expandSidebar: 'Expand sidebar',
     companyName: 'Catalyst Components',
     subtitle: 'Inventory Management System'
   },
@@ -112,6 +115,14 @@ export default {
     onTimeDelivery: 'On-Time Delivery',
     itemsCount: '{count} items',
     quantity: 'Qty',
+    submittedOrders: {
+      title: 'Submitted Orders',
+      empty: 'No restocking orders submitted yet.',
+      submittedDate: 'Submitted',
+      leadTime: 'Lead Time',
+      days: '{count} days',
+      total: 'Total Cost'
+    },
     table: {
       orderNumber: 'Order Number',
       orderId: 'Order ID',
@@ -188,6 +199,34 @@ export default {
     }
   },
 
+  // Restocking
+  restocking: {
+    title: 'Restocking',
+    description: 'Plan restocking orders within your budget based on the demand forecast',
+    budget: 'Available Budget',
+    allocated: 'Allocated',
+    remaining: 'Remaining',
+    itemsSelected: 'Items Selected',
+    recommendations: 'Recommended Items',
+    empty: 'Increase the budget to get restocking recommendations.',
+    noCandidates: 'No items with growing demand need restocking.',
+    partial: 'partial',
+    placeOrder: 'Place Order',
+    placing: 'Placing order...',
+    success: 'Order {number} submitted. Expected delivery in {days} days.',
+    viewOrders: 'View in Orders',
+    submitError: 'Failed to place order',
+    table: {
+      sku: 'SKU',
+      itemName: 'Item Name',
+      trend: 'Trend',
+      quantity: 'Quantity',
+      unitCost: 'Unit Cost',
+      lineTotal: 'Line Total',
+      leadTime: 'Lead Time'
+    }
+  },
+
   // Filters
   filters: {
     timePeriod: 'Time Period',
@@ -206,6 +245,7 @@ export default {
     backordered: 'Backordered',
     inStock: 'In Stock',
     lowStock: 'Low Stock',
+    submitted: 'Submitted',
     adequate: 'Adequate'
   },
 
